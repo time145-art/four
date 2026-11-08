@@ -1,0 +1,167 @@
+{
+    // 启动调试的快捷键是 F5。
+    // 本文件提供三种常用调试器配置：
+    // 1. DAPLink  -> OpenOCD -> GDB
+    // 2. ST-Link  -> OpenOCD -> GDB
+    // 3. J-Link   -> J-Link GDB Server -> GDB（不经过 OpenOCD）
+    //
+    // 使用前主要检查以下几项：
+    // - executable：改成当前工程实际生成的 ELF 文件名
+    // - device：改成当前 MCU 型号
+    // - svdFile：改成当前 MCU 对应的 SVD 文件
+    // - target/*.cfg：使用 OpenOCD 时要与 MCU 系列对应
+    // - rtos：裸机工程可删除；使用 FreeRTOS 时保留
+    //
+    // GDB、OpenOCD、J-Link GDB Server 的安装路径建议直接在
+    // Cortex-Debug 插件的“用户/全局设置”中配置，不在每个工程里重复写。
+
+    "version": "0.2.0",
+
+    "configurations": [
+
+        // ============================================================
+        // DAPLink / CMSIS-DAP
+        // ============================================================
+        {
+            "name": "DAPLink",
+            "cwd": "${workspaceFolder}",
+
+            // 要下载并调试的 ELF 文件。
+            // basic_framework 改成自己工程最终生成的目标文件名。
+            "executable": "${workspaceFolder}/build/basic_framework.elf",
+
+            "request": "launch",
+            "type": "cortex-debug",
+
+            // J-Link 调试时必须正确填写；OpenOCD 下也建议保留，
+            // 有助于 Cortex-Debug 识别目标器件。
+            "device": "STM32F407IG",
+
+            // SVD 文件用于查看 MCU 外设寄存器。
+            // 建议将对应 SVD 文件放在工程根目录。
+            "svdFile": "${workspaceFolder}/STM32F407.svd",
+
+            // DAPLink 实现 CMSIS-DAP，这里通过 OpenOCD 连接。
+            "servertype": "openocd",
+
+            // OpenOCD 自带的配置文件。
+            // interface/cmsis-dap.cfg：选择 CMSIS-DAP / DAPLink 调试器
+            // target/stm32f4x.cfg：选择 STM32F4 系列目标芯片
+            //
+            // 如果无线 DAPLink 必须使用工程自带的 openocd_dap.cfg，
+            // 可以把下面两个文件替换为：
+            // "configFiles": ["openocd_dap.cfg"]
+            "configFiles": [
+                "interface/cmsis-dap.cfg",
+                "target/stm32f4x.cfg"
+            ],
+
+            // 启动调试后自动运行到 main() 入口处停止。
+            "runToEntryPoint": "main",
+
+            // 使用 FreeRTOS 时保留，可查看线程信息；
+            // 如果是裸机工程，可以删除这一项。
+            "rtos": "FreeRTOS",
+
+            // Live Watch：程序运行时实时观察变量。
+            "liveWatch": {
+                "enabled": true,
+                "samplesPerSecond": 4
+            },
+
+            // 指定 GDB 的 debug-file-directory，避免部分新版 GDB
+            // 在加载调试信息时出现路径/调试文件相关问题。
+            "debuggerArgs": [
+                "-iex",
+                "set debug-file-directory ${workspaceFolder}/.gdb-debug"
+            ],
+
+            // F5 启动调试前，先执行 tasks.json 中的 build task。
+            "preLaunchTask": "build task"
+        },
+
+        // ============================================================
+        // ST-Link
+        // ============================================================
+        {
+            "name": "ST-Link",
+            "cwd": "${workspaceFolder}",
+            "executable": "${workspaceFolder}/build/basic_framework.elf",
+
+            "request": "launch",
+            "type": "cortex-debug",
+
+            "device": "STM32F407IG",
+            "svdFile": "${workspaceFolder}/STM32F407.svd",
+
+            // ST-Link 这里使用 OpenOCD 作为 GDB Server。
+            "servertype": "openocd",
+
+            // interface/stlink.cfg：选择 ST-Link 调试器
+            // target/stm32f4x.cfg：选择 STM32F4 系列目标芯片
+            "configFiles": [
+                "interface/stlink.cfg",
+                "target/stm32f4x.cfg"
+            ],
+
+            "runToEntryPoint": "main",
+            "rtos": "FreeRTOS",
+
+            // Live Watch：程序运行时实时观察变量。
+            // 实际能否在目标运行状态下持续读取，还与 OpenOCD、
+            // 调试器固件和 Cortex-Debug 版本有关。
+            "liveWatch": {
+                "enabled": true,
+                "samplesPerSecond": 4
+            },
+
+            "debuggerArgs": [
+                "-iex",
+                "set debug-file-directory ${workspaceFolder}/.gdb-debug"
+            ],
+
+            "preLaunchTask": "build task"
+        },
+
+        // ============================================================
+        // J-Link
+        // ============================================================
+        {
+            "name": "J-Link",
+            "cwd": "${workspaceFolder}",
+            "executable": "${workspaceFolder}/build/four.elf",
+
+            "request": "launch",
+            "type": "cortex-debug",
+
+            // J-Link GDB Server 需要明确知道目标 MCU。
+            "device": "STM32F407IG",
+
+            // J-Link 直接使用 SEGGER J-Link GDB Server，
+            // 不经过 OpenOCD。
+            "servertype": "jlink",
+
+            // 使用 SWD 接口。若硬件使用 JTAG，可按实际情况修改。
+            "interface": "swd",
+
+            "svdFile": "${workspaceFolder}/STM32F407.svd",
+
+            "runToEntryPoint": "main",
+            
+
+            // 保留 Live Watch。
+            // 当前实际环境中 J-Link 可在 MCU 持续运行时实时查看变量。
+            "liveWatch": {
+                "enabled": true,
+                "samplesPerSecond": 4
+            },
+
+            "debuggerArgs": [
+                "-iex",
+                "set debug-file-directory ${workspaceFolder}/.gdb-debug"
+            ],
+
+            "preLaunchTask": "build task"
+        }
+    ]
+}
